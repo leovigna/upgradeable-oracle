@@ -5,12 +5,12 @@
 This small project introduces a version of Chainlink's `Oracle.sol` contract that conforms to OpenZeppelin's Proxy Pattern. For this to be possible, the contract may not have a constructor and must use an initializer. Read more about this on OpenZeppelin's website here (https://docs.openzeppelin.com/upgrades/2.6/proxies#the-constructor-caveat)
 
 ## Motivations
-Problem: Once deployed a Chainlink node can be modified in many ways to improve performance and add new jobs. However, the Oracle contract address remains static and is highly coupled with other services. A node can respond to requests from various oracles but consumers are often reliant on a static address. Most notably, Oracles are listed by online registries such as [market.link](market.link) and used by DApps or other high-level contracts (eg. [Aggregator](https://eth-usd-aggregator.chain.link/).
+Problem: Once deployed a Chainlink node can be modified in many ways to improve performance and add new jobs. However, the Oracle contract address remains static and is highly coupled with other services. A node can respond to requests from various oracles but consumers are often reliant on a static address. Most notably, Oracles are listed by online registries such as [market.link](market.link) and used by DApps or other high-level contracts (eg. [Aggregator](https://eth-usd-aggregator.chain.link/)).
 
 Solution: Use the OpenZeppelin Proxy architecture to have an *upgradeable* Oracle that conserves the same interface and that can have incrementally added additional features.
 
 ## OracleUpgradeable.sol
-Upgradeable Oracle contract compatible with Chainlink nodes and LINK token interface. Can manage standard Chainlink requests. Read more about the architecture here https://docs.openzeppelin.com/upgrades/2.6/
+Upgradeable Oracle contract compatible with Chainlink nodes and LINK token interface. This requires a port to Soldiity ^0.5.0. Contract can manage standard Chainlink requests and emit event logs. Read more about the architecture here https://docs.openzeppelin.com/upgrades/2.6/
 
 ## OraclePriced.sol
 Example incremental feature for Oracle contract that adds job-level minimum pricing requirements. With this feature, the Oracle enforces a minimum LINK payment for each job and rejects any request that does not meet the threshold. In addition, pricing is public so users and contracts can know this price in advance. This is different from setting the MINIMUM_CONTRACT_PAYMENT environment variable as it is enforced on-chain and can be customized by each job.
