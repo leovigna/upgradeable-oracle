@@ -13,12 +13,9 @@ Solution: Use the OpenZeppelin Proxy architecture to have an *upgradeable* Oracl
 Upgradeable Oracle contract compatible with Chainlink nodes and LINK token interface. This requires a port to Soldiity ^0.5.0. Contract can manage standard Chainlink requests and emit event logs. Read more about the architecture here https://docs.openzeppelin.com/upgrades/2.6/
 
 ## OraclePriced.sol
-Example incremental feature for Oracle contract that adds job-level minimum pricing requirements. With this feature, the Oracle enforces a minimum LINK payment for each job and rejects any request that does not meet the threshold. In addition, pricing is public so users and contracts can know this price in advance. This is different from setting the MINIMUM_CONTRACT_PAYMENT environment variable as it is enforced on-chain and can be customized by each job.
+Example incremental feature for Oracle contract that adds job-level minimum pricing requirements. With this feature, the Oracle enforces a minimum LINK payment for each job and rejects any request that does not meet the threshold for the job (default is 0, so will **not** be rejected). In addition, pricing is public so users and contracts can know the price of each job in advance. This is different from setting the `MINIMUM_CONTRACT_PAYMENT` environment variable as it is enforced on-chain and can be customized for each job.
 
 Not only is this a useful feature, but the upgradeable architecture means this can be implemented *after* having deployed the upgradeable oracle. See example below.
-
-## Low-level OracleRequest() event log
-Due to how Solidity ^0.5.0 encodes the event with padding. Chainlink nodes have compatibility issues with the `emit Event()` form of event logs. We therefore resort to using inline assembly with a lowlevel `log2()` call to emit the equivalent event that can be correctly parsed by all Chainlink nodes. In the future, it would be beneficial for nodes to consdier the data length feel when parsing events, instead of assuming all bytes are part of the data. Low-level event logs provide backwards compatibility with the current nodes and are therefore the most practical solution as of know.
 
 ## Example
 ### On-chain example
@@ -63,6 +60,9 @@ Note above that the instance we picked is called `OracleUpgradeable` and not `My
 
 ### Cost
 Looking at before after examples. The proxy contract architecture comes at very little cost compared to the benefits it offers. Most of the cost of Oracle Requests comes from the data payload. From my tests the increase was 2k for a tx that cost 200k, which comes out at about +1% gas cost.
+
+## Low-level OracleRequest() event log
+Due to how Solidity ^0.5.0 encodes the event with padding. Chainlink nodes have compatibility issues with the `emit Event()` form of event logs. We therefore resort to using inline assembly with a lowlevel `log2()` call to emit the equivalent event that can be correctly parsed by all Chainlink nodes. In the future, it would be beneficial for nodes to consider the data length field when parsing events, instead of assuming all bytes are part of the data. Low-level event logs provide backwards compatibility with the current nodes and are therefore the most practical solution as of know.
 
 ## Security
 The project aims to change as little code as possible from the original implementation (see https://github.com/smartcontractkit/chainlink). In addition to replacing the constructor, the original interfaces and `Oracle.sol` code had to be ported to be compatible with Solidity ^0.5.0. This entails some minor syntactic changes but no substantial difference with the original implementation. 
