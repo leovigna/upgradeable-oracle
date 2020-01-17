@@ -13,12 +13,7 @@ contract OraclePriced is OracleUpgradeable {
 
   // Adds a new storage slot for pricing.
   // Author suggests becoming familiar with OpenZeppelin Proxy pattern.
-  mapping(bytes32 => uint256) private _jobPricing;
-
-  modifier checkJobPricing(bytes32 _specId, uint256 _payment) {
-    require(_payment >= _jobPricing[_specId], "Payment too low.");
-    _;
-  }
+  mapping(bytes32 => uint256) public _jobPricing;
 
   function setJobPricing(uint256 _payment, bytes32 _specId) external onlyOwner {
       _jobPricing[_specId] = _payment;
@@ -51,8 +46,9 @@ contract OraclePriced is OracleUpgradeable {
     external
     onlyLINK
     checkCallbackAddress(_callbackAddress)
-    checkJobPricing(_specId, _payment)
   {
+    require(_payment >= _jobPricing[_specId], "Payment too low.");
+
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
     require(commitments[requestId] == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
@@ -66,17 +62,28 @@ contract OraclePriced is OracleUpgradeable {
         expiration
       )
     );
+    // Soldity ^0.5.0 pads event data with 0
+    // This leads to compatibility issues with Chainlink as nodes ignore
+    // the data size. We use lower-level call to fix this issue.
+    // EVENT_NON_INDEXED_ARGS
+    bytes memory logData = abi.encode(
+        _sender,
+        requestId,
+        _payment,
+        _callbackAddress,
+        bytes32(_callbackFunctionId), //Extend to 32bytes
+        expiration,
+        _dataVersion,
+        _data
+    );
+    // Compute logDataLength to remove any padding from event log
+    uint256 logDataLength = 32 * 9 + _data.length; // arg slots + data.length slot
+    assembly { // solhint-disable-line no-inline-assembly
+        // Skip bytes length mem position (+ 32 bytes)
+        // log2() definition https://solidity.readthedocs.io/en/v0.5.3/assembly.html
+        log2(add(logData, 32), logDataLength, OracleRequestTopic, _specId)
+    }
 
-    emit OracleRequest(
-      _specId,
-      _sender,
-      requestId,
-      _payment,
-      _callbackAddress,
-      _callbackFunctionId,
-      expiration,
-      _dataVersion,
-      _data);
   }
 
 }

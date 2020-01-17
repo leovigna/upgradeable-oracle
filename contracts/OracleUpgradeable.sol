@@ -24,20 +24,27 @@ import "./interfaces/LinkTokenInterface.sol";
 contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initializable, Ownable {
   using SafeMath for uint256;
 
+  // private => internal : enable access from derived contract
   uint256 constant public EXPIRY_TIME = 5 minutes;
-  uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
+  uint256 constant internal MINIMUM_CONSUMER_GAS_LIMIT = 400000;
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
-  uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
-  uint256 constant private SELECTOR_LENGTH = 4;
-  uint256 constant private EXPECTED_REQUEST_WORDS = 2;
-  uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
+  uint256 constant internal ONE_FOR_CONSISTENT_GAS_COST = 1;
+  uint256 constant internal SELECTOR_LENGTH = 4;
+  uint256 constant internal EXPECTED_REQUEST_WORDS = 2;
+  uint256 constant internal MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
 
-  LinkTokenInterface internal LinkToken;
-  mapping(bytes32 => bytes32) private commitments;
-  mapping(address => bool) private authorizedNodes;
-  uint256 private withdrawableTokens;
+  LinkTokenInterface public LinkToken;
+  mapping(bytes32 => bytes32) internal commitments;
+  mapping(address => bool) internal authorizedNodes;
+  uint256 internal withdrawableTokens;
 
+  bytes32 internal constant IMPLEMENTATION_SLOT = bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1);
+  bytes32 internal constant OracleRequestTopic = 0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65;
+  /*
+  We use low-level logging for Chainlink node compatibility reasons.
+  Solidity ^0.5.0 pads call data which leads to errors.
+  keccak256("OracleRequest(bytes32,address,\bytes32,uint256,address,bytes4,uint256,uint256,bytes)");
   event OracleRequest(
     bytes32 indexed specId,
     address requester,
@@ -49,6 +56,7 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
     uint256 dataVersion,
     bytes data
   );
+  */
 
   event CancelOracleRequest(
     bytes32 indexed requestId
@@ -70,7 +78,19 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
   }
   */
 
+  /**
+   * @dev Returns the current implementation.
+   * @return Address of the current implementation
+   */
+  function _implementation() internal view returns (address impl) {
+    bytes32 slot = IMPLEMENTATION_SLOT;
+    assembly { // solhint-disable-line no-inline-assembly
+      impl := sload(slot)
+    }
+  }
+
   function initialize(address _link) initializer public {
+        Ownable.initialize(msg.sender); //initialize ownwer
         LinkToken = LinkTokenInterface(_link);
         withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
    }
@@ -98,7 +118,9 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
       mstore(add(_data, 68), _amount) // ensure correct amount is passed
     }
     // solhint-disable-next-line avoid-low-level-calls
-    (bool success,) = address(this).delegatecall(_data);
+    // Save gas cost by delegating to logic contract directly instead of to proxy
+    //(bool success,) = address(this).delegatecall(_data);
+    (bool success,) = address(_implementation()).delegatecall(_data);
 
     require(success, "Unable to create request"); // calls oracleRequest
   }
@@ -130,8 +152,10 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
     onlyLINK
     checkCallbackAddress(_callbackAddress)
   {
+    // Assumes _dataVersion = 1 interface
     bytes32 requestId = keccak256(abi.encodePacked(_sender, _nonce));
     require(commitments[requestId] == 0, "Must use a unique ID");
+
     // solhint-disable-next-line not-rely-on-time
     uint256 expiration = now.add(EXPIRY_TIME);
 
@@ -143,7 +167,30 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
         expiration
       )
     );
+    // Soldity ^0.5.0 pads event data with 0
+    // This leads to compatibility issues with Chainlink as nodes ignore
+    // the data size. We use lower-level call to fix this issue.
+    // EVENT_NON_INDEXED_ARGS
+    bytes memory logData = abi.encode(
+        _sender,
+        requestId,
+        _payment,
+        _callbackAddress,
+        bytes32(_callbackFunctionId), //Extend to 32bytes
+        expiration,
+        _dataVersion,
+        _data
+    );
+    // Compute logDataLength to remove any padding from event log
+    uint256 logDataLength = 32 * 9 + _data.length; // arg slots + data.length slot
+    assembly { // solhint-disable-line no-inline-assembly
+        // Skip bytes length mem position (+ 32 bytes)
+        // log2() definition https://solidity.readthedocs.io/en/v0.5.3/assembly.html
+        log2(add(logData, 32), logDataLength, OracleRequestTopic, _specId)
+    }
 
+    // Traditional Oracle Request event log
+    /*
     emit OracleRequest(
       _specId,
       _sender,
@@ -154,6 +201,7 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
       expiration,
       _dataVersion,
       _data);
+    */
   }
 
   /**
@@ -197,8 +245,9 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    (bool success,) = _callbackAddress.call(abi.encode(_callbackFunctionId, _requestId, _data)); // solhint-disable-line avoid-low-level-calls
-
+    // (bool success,) = _callbackAddress.call(abi.encode(_callbackFunctionId, _requestId, _data)); // solhint-disable-line avoid-low-level-calls
+    // Replace with encodeWithSelector to avoid padding
+    (bool success,) = _callbackAddress.call(abi.encodeWithSelector(_callbackFunctionId, _requestId, _data));
     return success;
   }
 

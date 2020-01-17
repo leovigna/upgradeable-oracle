@@ -1,6 +1,9 @@
 {
   "manifestVersion": "2.2",
-  "contracts": {},
+  "contracts": {
+    "MyOracle": "MyOracle",
+    "OracleUpgradeable": "OracleUpgradeable"
+  },
   "dependencies": {},
   "name": "vulcan-link",
   "version": "1.0.0",
