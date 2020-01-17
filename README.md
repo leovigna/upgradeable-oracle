@@ -10,7 +10,7 @@ Problem: Once deployed a Chainlink node can be modified in many ways to improve 
 Solution: Use the OpenZeppelin Proxy architecture to have an *upgradeable* Oracle that conserves the same interface and that can have incrementally added additional features.
 
 ## OracleUpgradeable.sol
-Upgradeable Oracle contract compatible with Chainlink nodes and LINK token interface. This requires a port to Soldiity ^0.5.0. Contract can manage standard Chainlink requests and emit event logs. Read more about the architecture here https://docs.openzeppelin.com/upgrades/2.6/
+Upgradeable Oracle contract compatible with Chainlink nodes and LINK token interface. This requires a port to Solidity ^0.5.0. Contract can manage standard Chainlink requests and emit event logs. Read more about the architecture here https://docs.openzeppelin.com/upgrades/2.6/
 
 ## OraclePriced.sol
 Example incremental feature for Oracle contract that adds job-level minimum pricing requirements. With this feature, the Oracle enforces a minimum LINK payment for each job and rejects any request that does not meet the threshold for the job (default is 0, so will **not** be rejected). In addition, pricing is public so users and contracts can know the price of each job in advance. This is different from setting the `MINIMUM_CONTRACT_PAYMENT` environment variable as it is enforced on-chain and can be customized for each job.
