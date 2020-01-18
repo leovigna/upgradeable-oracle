@@ -19,7 +19,7 @@ Not only is this a useful feature, but the upgradeable architecture means this c
 
 ## Example
 ### On-chain example
-The `UpgradeableContract.sol` conforms to the interface and will respond to jobs from consumers correctly. It is compatible with the other Chainlink contracts (even though some are Soldity 0.4.24). 
+The `UpgradeableContract.sol` conforms to the interface and will respond to jobs from consumers correctly. It is compatible with the other Chainlink contracts (even though some are compiled with older compilers).
 
 Deployed Version:
 https://ropsten.etherscan.io/address/0xb4d58a6071564b456e37fedc5bd48f73ffee0cfc#readProxyContract
@@ -51,18 +51,23 @@ oz upgrade
 ...
 New variable 'mapping(key => uint256) _jobPricing' was added in contract OraclePriced in contracts/OraclePriced.sol:1 at the end of the contract.
 ? Which instances would you like to upgrade? Choose by address
-? Pick an instance to upgrade OracleUpgradeable at 0xdbB6fa03a9e7B7b67146a86a55008Ef47Bc126AC
+? Pick an instance to upgrade MyOracle at 0xdbB6fa03a9e7B7b67146a86a55008Ef47Bc126AC
 ? Call a function on the instance after upgrading it? n
-Contract OracleUpgradeable at 0xdbB6fa03a9e7B7b67146a86a55008Ef47Bc126AC is up to date.
+Contract MyOracle at 0xdbB6fa03a9e7B7b67146a86a55008Ef47Bc126AC is up to date.
 ```
 
-Note above that the instance we picked is called `OracleUpgradeable` and not `MyOracle`. This does not matter in this **specific** case due to them haven been the same. As long as the contract is a proxy, its logic can be replaced. It is **critical** however that the storage slots align correctly. As a general rule, only add storage slots.
+Upgrades update the proxy contract to point to a new logic contract to which the delegatecalls will be forwarded to. You must be careful to conserve storage slots in the same order and avoid deleting them. For derived contracts such as `OraclePriced.sol`, we preemptivaley reserve 50 storage slots for the parent contract `OracleUpgradeable.sol`.
+```
+uint256[50] private ______gap;
+```
+This does not incur additional gas cost but merely "shifts" the positioning of the variables of the child contract. This enables the possibility of adding storage slots to the parent contract so long as the '______gap' is compensated for. Not that `constant` variables take up no storage space as they are replaced by their computed values at compile time.
+
 
 ### Cost
 Looking at before after examples. The proxy contract architecture comes at very little cost compared to the benefits it offers. Most of the cost of Oracle Requests comes from the data payload. From my tests the increase was 2k for a tx that cost 200k, which comes out at about +1% gas cost.
 
 ## Low-level OracleRequest() event log
-Due to how Solidity ^0.5.0 encodes the event with padding. Chainlink nodes have compatibility issues with the `emit Event()` form of event logs. We therefore resort to using inline assembly with a lowlevel `log2()` call to emit the equivalent event that can be correctly parsed by all Chainlink nodes. In the future, it would be beneficial for nodes to consider the data length field when parsing events, instead of assuming all bytes are part of the data. Low-level event logs provide backwards compatibility with the current nodes and are therefore the most practical solution as of know.
+Due to how Solidity ^0.5.0 encodes the event with padding. Chainlink nodes have compatibility issues with the `emit Event()` form of event logs. We therefore resort to using inline assembly with a lowlevel `log2()` call to emit the equivalent event that can be correctly parsed by all Chainlink nodes. In the future, it would be beneficial for nodes to consider the data length field when parsing events, instead of assuming all bytes are part of the data. Low-level event logs provide backwards compatibility with the current nodes and are therefore the most practical solution as of now.
 
 ## Security
 The project aims to change as little code as possible from the original implementation (see https://github.com/smartcontractkit/chainlink). In addition to replacing the constructor, the original interfaces and `Oracle.sol` code had to be ported to be compatible with Solidity ^0.5.0. This entails some minor syntactic changes but no substantial difference with the original implementation. 

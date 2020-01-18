@@ -90,7 +90,7 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
   }
 
   function initialize(address _link) initializer public {
-        Ownable.initialize(msg.sender); //initialize ownwer
+        Ownable.initialize(msg.sender); //initialize owner
         LinkToken = LinkTokenInterface(_link);
         withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
    }
@@ -245,7 +245,6 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    // (bool success,) = _callbackAddress.call(abi.encode(_callbackFunctionId, _requestId, _data)); // solhint-disable-line avoid-low-level-calls
     // Replace with encodeWithSelector to avoid padding
     (bool success,) = _callbackAddress.call(abi.encodeWithSelector(_callbackFunctionId, _requestId, _data));
     return success;
@@ -392,5 +391,8 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
     require(_data.length >= MINIMUM_REQUEST_LENGTH, "Invalid request length");
     _;
   }
+
+  // Reserved storage space to allow for layout changes in the future.
+  uint256[50] private ______gap;
 
 }
