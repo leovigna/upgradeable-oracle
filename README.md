@@ -1,5 +1,6 @@
 # Upgradeable Oracle
 **DISCLAIMER: Project Beta. Test thouroughly before any Mainnet launch.**
+[![built-with openzeppelin](https://img.shields.io/badge/built%20with-OpenZeppelin-3677FF)](https://docs.openzeppelin.com/)
 
 ## Description
 This small project introduces a version of Chainlink's `Oracle.sol` contract that conforms to OpenZeppelin's Proxy Pattern. For this to be possible, the contract may not have a constructor and must use an initializer. Read more about this on OpenZeppelin's website here (https://docs.openzeppelin.com/upgrades/2.6/proxies#the-constructor-caveat)
@@ -56,11 +57,12 @@ New variable 'mapping(key => uint256) _jobPricing' was added in contract OracleP
 Contract MyOracle at 0xdbB6fa03a9e7B7b67146a86a55008Ef47Bc126AC is up to date.
 ```
 
+#### Logic Contract & Storage slots
 Upgrades update the proxy contract to point to a new logic contract to which the delegatecalls will be forwarded to. You must be careful to conserve storage slots in the same order and avoid deleting them. For derived contracts such as `OraclePriced.sol`, we preemptivaley reserve 50 storage slots for the parent contract `OracleUpgradeable.sol`.
 ```
 uint256[50] private ______gap;
 ```
-This does not incur additional gas cost but merely "shifts" the positioning of the variables of the child contract. This enables the possibility of adding storage slots to the parent contract so long as the '______gap' is compensated for. Not that `constant` variables take up no storage space as they are replaced by their computed values at compile time.
+This does not incur additional gas cost but merely "shifts" the positioning of the variables of the child contract. This enables the possibility of adding storage slots to the parent contract so long as the '______gap' is reduced equally. Adding 1 variable to `OracleUpgradeable.sol` and reducing the gap by 1 therefore would conserve storage alignment in all child contracts.  Not that `constant` variables take up no storage space as they are replaced by their computed values at compile time.
 
 
 ### Cost

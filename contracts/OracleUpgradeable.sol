@@ -167,7 +167,7 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
         expiration
       )
     );
-    // Soldity ^0.5.0 pads event data with 0
+    // Solidity ^0.5.0 pads event data with 0
     // This leads to compatibility issues with Chainlink as nodes ignore
     // the data size. We use lower-level call to fix this issue.
     // EVENT_NON_INDEXED_ARGS
@@ -182,7 +182,7 @@ contract OracleUpgradeable is ChainlinkRequestInterface, OracleInterface, Initia
         _data
     );
     // Compute logDataLength to remove any padding from event log
-    uint256 logDataLength = 32 * 9 + _data.length; // arg slots + data.length slot
+    uint256 logDataLength = 32 * 9 + _data.length; // arg slots + _data.length slot (_data takes up _data.length + 1 slots)
     assembly { // solhint-disable-line no-inline-assembly
         // Skip bytes length mem position (+ 32 bytes)
         // log2() definition https://solidity.readthedocs.io/en/v0.5.3/assembly.html
